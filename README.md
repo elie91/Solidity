@@ -5,6 +5,14 @@
 Un `contrat (contract)` permet d'encapsuler du code Solidity, c'est la composante fondamentale de toutes applications Ethereum - 
 toutes les variables et fonctions appartiennent à un contrat, et ce sera le point de départ de tous vos projets.
 
+## Immutabilité des contrats
+
+une fois que vous avez déployé un contrat Ethereum, il est `immuable`, ce qui veut dire qu'il ne pourra plus jamais être modifié ou mis à jour.
+
+Le code que vous allez déployer initialement pour un contrat restera de manière permanente sur la blockchain. C'est pour cela que la sécurité est une préoccupation si importante en Solidity. S'il y a une faille dans le code de votre contrat, il n'y aucun moyen pour vous de le patcher plus tard. Vous devrez dire à vos utilisateurs d'utiliser une adresse de contrat différente qui a le correctif.
+
+Mais c'est aussi une des fonctionnalités des smart contracts. Le code est immuable. Si vous lisez et vérifiez le code d'un smart contract, vous pouvez être sûr que chaque fois que vous appellerez une fonction, cela fera exactement ce que le code dit de faire. Personne ne pourra changer cette fonction plus tard et vous n'aurez pas de résultats inattendus.
+
 ## Pragma Version
 
 Tout code source en Solidity doit commencer par un `pragma version` - une déclaration de la version du compilateur Solidity que ce code devra utiliser. Cela permet d'éviter d'éventuels problèmes liés aux changements introduits par des futures versions du compilateur.
@@ -208,6 +216,22 @@ function sayHiToVitalik(string _name) public returns (string) {
 }
 ````
 
+### modifier
+
+Les modificateurs sont comme des demi-fonctions qui permettent de modifier d'autres fonctions, souvent pour vérifier des conditions avant l'exécution
+
+````solidity
+  /**
+   * @dev Abandonne si appelé par un compte autre que le `owner`.
+   */
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+
+  function transferOwnership(address newOwner) public onlyOwner {}
+````
+
 ## Evenements
 
 Un  `évènement`est un moyen pour votre contrat d'indiquer à votre application frontale (front-end) 
@@ -307,22 +331,70 @@ Nous pouvons l'utiliser dans un contrat comme ceci :
 
 ````solidity
 contract MyContract {
-  address NumberInterfaceAddress = 0xab38...
-  // ^ L'adresse du contrat FavoriteNumber sur Ethereum
-  NumberInterface numberContract = NumberInterface(NumberInterfaceAddress)
-  // Maintenant `numberContract` pointe vers l'autre contrat
-
-  function someFunction() public {
-    //Nous pouvons maintenant appeler `getNum` à partir de ce contrat :
-    uint num = numberContract.getNum(msg.sender);
+    
+    // Ne pas mettre l'adresse du contrat en dur, mais passé plutôt par une fonction
+    //address NumberInterfaceAddress = 0xab38...
+    // ^ L'adresse du contrat FavoriteNumber sur Ethereum
+    NumberInterface numberContract
+    
+    function setNumberContractAddress(address _address) external {
+        numberContract = NumberInterface(_address);
+    }
+    
+    function someFunction() public {
+        //Nous pouvons maintenant appeler `getNum` à partir de ce contrat :
+            uint num = numberContract.getNum(msg.sender);
     // ...et faire quelque chose avec ce `num`
-  }
+    }
 }
 ````
 
 De cette manière, votre contrat peut interagir avec n'importe quel autre contrat sur la blockchain Ethereum, tant qu'ils exposent leurs fonctions comme public ou external.
 
+La fonction `setNumberContractAddress` est external, ce qui veut dire que n'importe qui pourrait changer l'adresse du contrat
 
+Nous voulons être capable de mettre à jour cette adresse de notre contrat, mais nous ne voulons pas que tout le monde puisse le faire.
+
+Pour gérer une situation comme celle-là, il y a une pratique courante qui consiste à rendre les contrats Ownable (avec propriétaire) - ce qui veut dire qu'ils ont un propriétaire (vous) avec des privilèges spéciaux.
+
+```solidity
+/**
+  * @title Ownable
+  * @dev Le contrat Ownable a une adresse de propriétaire, et offre des fonctions de contrôle
+  * d’autorisations basiques, pour simplifier l’implémentation des "permissions utilisateur".
+  */
+contract Ownable {
+  address public owner;
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+   /**
+    * @dev Le constructeur Ownable défini le `owner` (propriétaire) original du contrat égal
+    * à l'adresse du compte expéditeur (msg.sender).
+    */
+  function Ownable() public {
+    owner = msg.sender;
+  }
+
+  /**
+   * @dev Abandonne si appelé par un compte autre que le `owner`.
+   */
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+
+   /**
+    * @dev Permet au propriétaire actuel de transférer le contrôle du contrat
+    * à un `newOwner` (nouveau propriétaire).
+    * @param newOwner C'est l'adresse du nouveau propriétaire
+    */
+  function transferOwnership(address newOwner) public onlyOwner {
+    require(newOwner != address(0));
+    OwnershipTransferred(owner, newOwner);
+    owner = newOwner;
+  }
+}
+```
 
 
 
